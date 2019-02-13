@@ -83,6 +83,12 @@ open class YNDropDownMenu: UIView, YNDropDownDelegate {
     
     /// Bottom 0.5px line
     open var bottomLine: UIView!
+    
+    /// attach superview
+    open var isAttachSuperView: Bool = true
+    open var superView: UIView!
+    open var fakeDimView: UIView = UIView()
+    
     /**
      Init YNDropDownMenu with frame, views, strings. Views count and titles count should be same
      
@@ -90,12 +96,14 @@ open class YNDropDownMenu: UIView, YNDropDownDelegate {
      - Parameter dropDownViews: Use [UIView] or [YNDropDownView]
      - Parameter dropDownViewTitles: [String]
      */
-    public init(frame: CGRect, dropDownViews: [UIView], dropDownViewTitles: [String]) {
+    public init(frame: CGRect, dropDownViews: [UIView], dropDownViewTitles: [String], isAttachSuperView: Bool = true) {
         guard dropDownViews.count == dropDownViewTitles.count else {
             fatalError("Please make dropDownViews count same with dropDownViewsTitles count")
         }
         
         super.init(frame: frame)
+        
+        self.isAttachSuperView = isAttachSuperView
         
         numberOfMenu = dropDownViews.count
         self.dropDownViews = dropDownViews
@@ -441,6 +449,18 @@ open class YNDropDownMenu: UIView, YNDropDownDelegate {
         openedIndex = index
         
         if !opened {
+            if isAttachSuperView == true, let superView = self.superView, let dropDownView = dropDownViews?[index] {
+                let convertFrameSelf = superView.convert(self.frame, from: self.superview)
+                
+                dropDownView.frame.origin.y = convertFrameSelf.origin.y + CGFloat(self.menuHeight)
+                
+                if let contentDropDownView = dropDownView as? YNDropDownView, contentDropDownView.isFullSize {
+                    dropDownView.frame.size.height = superView.frame.height
+                }
+                
+                dropDownViews?[index] = dropDownView
+            }
+            
             showMenu(yNDropDownButton: dropDownButtons?[index], buttonImageView: dropDownButtons?[index].buttonImageView, dropDownView: dropDownViews?[index], didComplete: nil)
         } else {
             hideMenu(yNDropDownButton: dropDownButtons?[index], buttonImageView: dropDownButtons?[index].buttonImageView, dropDownView: dropDownViews?[index], didComplete: nil)
@@ -468,16 +488,32 @@ open class YNDropDownMenu: UIView, YNDropDownDelegate {
             let yNDropDownButton = yNDropDownButton,
             let dropDownView = dropDownView else { return }
         
+        
+        
         dropDownView.isHidden = false
-        
-        self.addSubview(dropDownView)
-        self.sendSubviewToBack(dropDownView)
-        
+
+        if let superView = self.superView, isAttachSuperView == true {
+            superView.addSubview(dropDownView)
+        } else {
+            self.addSubview(dropDownView)
+            self.sendSubviewToBack(dropDownView)
+        }
+
         (dropDownView as? YNDropDownView)?.dropDownViewOpened()
         
         if self.backgroundBlurEnabled, let _blurEffectView = blurEffectView {
-            self.superview?.insertSubview(_blurEffectView, belowSubview: self)
+            
+            if isAttachSuperView == true, let superView = self.superView {
+                superView.insertSubview(_blurEffectView, belowSubview: dropDownView)
+                _blurEffectView.frame = CGRect(x: dropDownView.frame.origin.x, y: dropDownView.frame.origin.y, width: self.frame.width, height: UIScreen.main.bounds.size.height - dropDownView.frame.origin.y)
+                
+                fakeDimView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                superView.insertSubview(fakeDimView, belowSubview: _blurEffectView)
+            } else {
+                self.superview?.insertSubview(_blurEffectView, belowSubview: self)
+            }
         }
+        
         UIView.animate(
             withDuration: self.showMenuDuration,
             delay: 0,
@@ -485,14 +521,24 @@ open class YNDropDownMenu: UIView, YNDropDownDelegate {
             initialSpringVelocity: self.showMenuSpringVelocity,
             options: [],
             animations: {
-                dropDownView.frame.origin.y = CGFloat(self.menuHeight)
+                if self.isAttachSuperView == true, let superView = self.superView {
+                    //let convertFrameSelf = superView.convert(self.frame, from: self.superview)
+                    
+                    //dropDownView.frame.origin.y = convertFrameSelf.origin.y
+                } else {
+                    dropDownView.frame.origin.y = CGFloat(self.menuHeight)
+                }
+                
                 if self.backgroundBlurEnabled {
                     self.blurEffectView?.alpha = self.blurEffectViewAlpha
                 }
+                
                 self.frame = CGRect(x: self.frame.origin.x, y: self.frame.origin.y, width: self.frame.width, height: dropDownView.frame.height + CGFloat(self.menuHeight))
+                
                 if let _buttonImageView = buttonImageView {
                     _buttonImageView.image = self.buttonImagesArray?[yNDropDownButton.tag]?.selected
                 }
+                
                 yNDropDownButton.buttonLabel.textColor = self.buttonlabelFontColors?.selected
                 yNDropDownButton.buttonLabel.font = self.buttonlabelFonts?.selected
                 
@@ -515,17 +561,25 @@ open class YNDropDownMenu: UIView, YNDropDownDelegate {
             initialSpringVelocity: self.hideMenuSpringVelocity,
             options: [],
             animations: {
-                dropDownView.frame.origin.y = CGFloat(self.menuHeight)
+                if self.isAttachSuperView == true, let superView = self.superView {
+                    //dropDownView.frame.origin.y = dropDownView.frame.origin.y + CGFloat(self.menuHeight)
+                } else {
+                    dropDownView.frame.origin.y = CGFloat(self.menuHeight)
+                }
+                
                 if self.backgroundBlurEnabled {
                     self.blurEffectView?.alpha = 0
                 }
+                
                 self.frame = CGRect(x: self.frame.origin.x, y: self.frame.origin.y, width: self.frame.width, height: CGFloat(self.menuHeight))
+                
                 if let _buttonImageView = buttonImageView {
                     _buttonImageView.layer.transform = CATransform3DMakeRotation(CGFloat(Double.pi), 0.0, 0.0, 0.0);
                     _buttonImageView.image = self.buttonImagesArray?[yNDropDownButton.tag]?.normal
                 }
                 
                 guard let alwaysOnIndex = self.alwaysOnIndex else { return }
+                
                 if !alwaysOnIndex.contains(yNDropDownButton.tag) {
                     yNDropDownButton.buttonLabel.textColor = self.buttonlabelFontColors?.normal
                     yNDropDownButton.buttonLabel.font = self.buttonlabelFonts?.normal
@@ -534,6 +588,7 @@ open class YNDropDownMenu: UIView, YNDropDownDelegate {
         }, completion: { _ in
             if self.backgroundBlurEnabled {
                 self.blurEffectView?.removeFromSuperview()
+                self.fakeDimView.removeFromSuperview()
                 dropDownView.isHidden = true
             }
             didComplete?()
@@ -584,6 +639,9 @@ open class YNDropDownMenu: UIView, YNDropDownDelegate {
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(blurEffectViewClicked(_:)))
         self.blurEffectView?.addGestureRecognizer(tapGesture)
         
+        fakeDimView.backgroundColor = UIColor.clear
+        fakeDimView.addGestureRecognizer(tapGesture)
+        
         layoutViews()
     }
     
@@ -595,14 +653,19 @@ open class YNDropDownMenu: UIView, YNDropDownDelegate {
                 button.frame = CGRect(x: eachWidth * CGFloat(i), y: 0.0, width: eachWidth, height: CGFloat(menuHeight))
             }
             // Setup Views
-            if let _dropDownView = dropDownViews?[i] {
-                _dropDownView.frame.size = CGSize(width: self.bounds.size.width, height: _dropDownView.frame.height)
-                _dropDownView.frame.origin.y = CGFloat(menuHeight)
+            if isAttachSuperView == false {
+                if let _dropDownView = dropDownViews?[i] {
+                    _dropDownView.frame.size = CGSize(width: self.bounds.size.width, height: _dropDownView.frame.height)
+                    _dropDownView.frame.origin.y = CGFloat(menuHeight)
+                }
             }
         }
         let originY = self.frame.origin.y + menuHeight + 5
         self.bottomLine.frame = CGRect(x: 0, y: CGFloat(menuHeight) - 0.5, width: self.frame.width, height: 0.5)
-        self.blurEffectView?.frame = CGRect(x: self.frame.origin.x, y: originY, width: self.frame.width, height: UIScreen.main.bounds.size.height - originY)
+        
+        if isAttachSuperView == false {
+            self.blurEffectView?.frame = CGRect(x: self.frame.origin.x, y: originY, width: self.frame.width, height: UIScreen.main.bounds.size.height - originY)
+        }
     }
     
     override open func layoutSubviews() {

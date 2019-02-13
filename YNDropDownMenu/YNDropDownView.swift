@@ -10,6 +10,8 @@ import UIKit
 
 /// Inherit this class to customize functions
 open class YNDropDownView: UIView {
+    open var isFullSize: Bool = false
+    
     /// YNDropDownDelegate for call back
     open weak var delegate: YNDropDownDelegate?
     
