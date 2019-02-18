@@ -9,7 +9,7 @@
 import UIKit
 
 /// Setting 3 status UIImage
-struct YNImages {
+public struct YNImages {
     /// Normal UIImage
     var normal: UIImage?
     
@@ -21,7 +21,7 @@ struct YNImages {
 }
 
 /// Setting 3 status UIColor
-struct YNFontColor {
+public struct YNFontColor {
     /// Normal UIColor
     var normal: UIColor?
     
@@ -33,7 +33,7 @@ struct YNFontColor {
 }
 
 /// Setting 3 status UIFont
-struct YNFont {
+public struct YNFont {
     /// Normal UIFont
     var normal: UIFont?
     
